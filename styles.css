@@ -97,12 +97,9 @@ body {
   color: var(--text);
 }
 
-.brand-mark {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background: var(--green);
-  box-shadow: 0 0 14px var(--green-glow);
+.brand-clock {
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.5));
 }
 
 .header-right {
@@ -462,6 +459,19 @@ button, .btn-log {
 
 .insights-grid {
   display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.insights-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.insights-bottom {
+  display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
 }
@@ -474,9 +484,49 @@ button, .btn-log {
   backdrop-filter: blur(12px);
 }
 
-/* Chart spans full width */
-.insight-card--chart {
-  grid-column: 1 / -1;
+/* ─── Activity clock ─── */
+.insight-card--clock {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.clock-face-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.clock-legend {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  margin-top: auto;
+}
+
+.clock-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.clock-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.clock-legend-item span {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 .card-head {
@@ -855,27 +905,21 @@ button, .btn-log {
 }
 
 /* ─── Responsive ─── */
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   h1 { font-size: 3.4rem; }
 
-  .hero-inner {
-    grid-template-columns: 1fr;
-    gap: 44px;
-  }
-
+  .hero-inner { grid-template-columns: 1fr; gap: 44px; }
   .hero { min-height: auto; padding: 88px 32px 56px; }
 
   .today-grid { grid-template-columns: 1fr 1fr; }
 
-  .insights-grid { grid-template-columns: 1fr 1fr; }
+  .insights-grid { grid-template-columns: 1fr; }
+  .insights-bottom { grid-template-columns: 1fr 1fr; }
 
-  .insight-card--chart { grid-column: 1 / -1; }
-  .insight-card--breakdown,
-  .insight-card--streak,
-  .insight-card--peaks { grid-column: auto; }
+  .insight-card--clock { max-width: 320px; }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 720px) {
   h1 { font-size: 2.6rem; }
   h2 { font-size: 2rem; }
 
@@ -885,17 +929,13 @@ button, .btn-log {
   .history-section { padding-left: 20px; padding-right: 20px; }
   .header-inner { padding: 0 20px; }
 
-  .today-grid,
-  .insights-grid { grid-template-columns: 1fr; }
+  .today-grid { grid-template-columns: 1fr; }
+  .insights-bottom { grid-template-columns: 1fr; }
 
-  .insight-card--chart { grid-column: 1; }
+  .insight-card--clock { max-width: 100%; }
 
   .mode-row { grid-template-columns: 1fr 1fr; }
-
-  .control-row {
-    grid-template-columns: 1fr 1fr;
-  }
-
+  .control-row { grid-template-columns: 1fr 1fr; }
   .control-row .btn-primary { grid-column: 1 / -1; }
 
   .time-display { font-size: 4rem; }
@@ -904,6 +944,5 @@ button, .btn-log {
   .session-mode { display: none; }
 
   .header-date { display: none; }
-
   .weekly-chart { height: 140px; }
 }

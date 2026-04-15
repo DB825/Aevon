@@ -1,0 +1,10 @@
+{
+  "name": "aevon",
+  "version": "1.0.0",
+  "private": true,
+  "engines": { "node": "18.x" },
+  "dependencies": {
+    "@clerk/backend": "^1.7.0",
+    "firebase-admin": "^12.3.0"
+  }
+}
