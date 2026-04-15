@@ -763,6 +763,97 @@ button, .btn-log {
   white-space: nowrap;
 }
 
+/* ─── Auth UI ─── */
+.auth-area {
+  display: flex;
+  align-items: center;
+}
+
+.auth-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--dim);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btn-signin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: unset;
+  transition: all 0.16s ease;
+}
+
+.btn-signin:hover {
+  border-color: var(--border-active);
+  background: var(--green-dim);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-active);
+  object-fit: cover;
+}
+
+.user-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.btn-signout {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 4px 10px;
+  min-height: unset;
+  font-family: inherit;
+  transition: all 0.16s ease;
+}
+
+.btn-signout:hover {
+  color: var(--coral);
+  border-color: rgba(251, 113, 133, 0.3);
+}
+
+/* Sync indicator */
+.sync-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: pip-pulse 2s ease-in-out infinite;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 1000px) {
   h1 { font-size: 3.4rem; }

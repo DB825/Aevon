@@ -7,7 +7,8 @@ const modes = [
 
 const storageKey = "aevon.sessions.v1";
 
-// Timer UI
+// ─── DOM refs ─────────────────────────────────────────────
+
 const modeButtons    = [...document.querySelectorAll(".mode-btn")];
 const timerWidget    = document.querySelector("#timer-widget");
 const timeOutput     = document.querySelector("#time-output");
@@ -20,14 +21,12 @@ const voiceButton    = document.querySelector("#voice-toggle");
 const sessionForm    = document.querySelector("#session-form");
 const noteInput      = document.querySelector("#session-note");
 
-// Today
 const todayTotal     = document.querySelector("#today-total");
 const yesterdayTotal = document.querySelector("#yesterday-total");
 const dailyDelta     = document.querySelector("#daily-delta");
 const bestHourEl     = document.querySelector("#best-hour");
 const productivityEl = document.querySelector("#productivity-score");
 
-// Insights
 const weeklyChart    = document.querySelector("#weekly-chart");
 const weeklyBadge    = document.querySelector("#weekly-badge");
 const breakdownList  = document.querySelector("#breakdown-list");
@@ -40,26 +39,29 @@ const bestHour2      = document.querySelector("#best-hour-2");
 const avgSessionEl   = document.querySelector("#avg-session");
 const totalAllTime   = document.querySelector("#total-all-time");
 
-// History
 const emptyState     = document.querySelector("#empty-state");
 const sessionList    = document.querySelector("#session-list");
 
-// Header
 const headerStreak   = document.querySelector("#header-streak");
 const streakPill     = document.querySelector("#streak-pill");
 const headerDate     = document.querySelector("#header-date");
+const authArea       = document.querySelector("#auth-area");
 
-let currentMode = "study";
-let elapsedMs   = 0;
-let startedAt   = null;
-let rafId       = null;
-let sessions    = loadSessions();
-let recognition = null;
-let voiceEnabled = false;
+// ─── State ────────────────────────────────────────────────
 
-// ─── Storage ──────────────────────────────────────────────
+let currentMode  = "study";
+let elapsedMs    = 0;
+let startedAt    = null;
+let rafId        = null;
+let sessions     = loadSessionsLocal();
 
-function loadSessions() {
+let currentUser  = null;
+let db           = null;
+let auth         = null;
+
+// ─── Local storage ────────────────────────────────────────
+
+function loadSessionsLocal() {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
     return Array.isArray(parsed) ? parsed : [];
@@ -68,8 +70,128 @@ function loadSessions() {
   }
 }
 
+function saveSessionsLocal(list) {
+  localStorage.setItem(storageKey, JSON.stringify(list));
+}
+
+// ─── Firestore ────────────────────────────────────────────
+
+async function loadSessionsFromFirestore(uid) {
+  try {
+    const doc = await db.collection("users").doc(uid).get();
+
+    if (doc.exists) {
+      const data = doc.data();
+      return Array.isArray(data.sessions) ? data.sessions : [];
+    }
+
+    // First sign-in: migrate any existing localStorage data
+    const local = loadSessionsLocal();
+    if (local.length > 0) {
+      await db.collection("users").doc(uid).set({ sessions: local });
+      localStorage.removeItem(storageKey);
+      return local;
+    }
+
+    return [];
+  } catch (err) {
+    console.error("Firestore load failed, falling back to localStorage:", err);
+    return loadSessionsLocal();
+  }
+}
+
 function persistSessions() {
-  localStorage.setItem(storageKey, JSON.stringify(sessions));
+  // Always keep a local backup
+  saveSessionsLocal(sessions);
+
+  if (currentUser && db) {
+    db.collection("users")
+      .doc(currentUser.uid)
+      .set({ sessions: sessions.slice(0, 200) })
+      .catch((err) => console.error("Firestore write failed:", err));
+  }
+}
+
+// ─── Firebase auth ────────────────────────────────────────
+
+function initFirebase() {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db   = firebase.firestore();
+
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user;
+
+      if (user) {
+        sessions = await loadSessionsFromFirestore(user.uid);
+      } else {
+        sessions = loadSessionsLocal();
+      }
+
+      renderAuthUI();
+      render();
+    });
+  } catch (err) {
+    console.error("Firebase init failed:", err);
+    // Graceful fallback: run without auth
+    renderAuthUI();
+    render();
+  }
+}
+
+async function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    await auth.signInWithPopup(provider);
+  } catch (err) {
+    if (err.code !== "auth/popup-closed-by-user") {
+      console.error("Sign-in failed:", err);
+      runStatus.textContent = "Sign-in failed. Please try again.";
+    }
+  }
+}
+
+async function handleSignOut() {
+  try {
+    await auth.signOut();
+  } catch (err) {
+    console.error("Sign-out failed:", err);
+  }
+}
+
+function renderAuthUI() {
+  if (!auth) {
+    // Firebase didn't initialize — hide auth area
+    authArea.innerHTML = "";
+    return;
+  }
+
+  if (currentUser) {
+    const name   = currentUser.displayName?.split(" ")[0] || "User";
+    const avatar = currentUser.photoURL || "";
+    authArea.innerHTML = `
+      <div class="user-info">
+        ${avatar ? `<img src="${escapeHtml(avatar)}" class="user-avatar" alt="${escapeHtml(name)}" referrerpolicy="no-referrer" />` : ""}
+        <span class="user-name">${escapeHtml(name)}</span>
+        <button class="btn-signout" id="btn-signout">Sign out</button>
+      </div>
+    `;
+    document.getElementById("btn-signout").addEventListener("click", handleSignOut);
+  } else {
+    authArea.innerHTML = `
+      <button class="btn-signin" id="btn-signin">
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Sign in with Google
+      </button>
+    `;
+    document.getElementById("btn-signin").addEventListener("click", signInWithGoogle);
+  }
 }
 
 // ─── Time helpers ─────────────────────────────────────────
@@ -271,9 +393,9 @@ function getLongestStreak() {
   let current = 1;
 
   for (let i = 1; i < productiveDays.length; i++) {
-    const prev = parseLocalDate(productiveDays[i - 1]);
-    const curr = parseLocalDate(productiveDays[i]);
-    const diff = Math.round((curr - prev) / 86400000);
+    const diff = Math.round(
+      (parseLocalDate(productiveDays[i]) - parseLocalDate(productiveDays[i - 1])) / 86400000
+    );
     if (diff === 1) {
       current++;
       if (current > longest) longest = current;
@@ -330,7 +452,7 @@ function getAvgSession() {
 }
 
 function escapeHtml(value) {
-  return value
+  return String(value)
     .replaceAll("&",  "&amp;")
     .replaceAll("<",  "&lt;")
     .replaceAll(">",  "&gt;")
@@ -338,17 +460,15 @@ function escapeHtml(value) {
     .replaceAll("'",  "&#039;");
 }
 
-// ─── Render functions ─────────────────────────────────────
+// ─── Render ───────────────────────────────────────────────
 
 function renderHeader() {
   const streak = getStreak();
-
-  headerDate.textContent = new Date().toLocaleDateString("en-US", {
+  headerDate.textContent  = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month:   "long",
     day:     "numeric",
   });
-
   headerStreak.textContent = streak;
   streakPill.classList.toggle("has-streak", streak > 0);
 }
@@ -357,25 +477,20 @@ function renderStats() {
   const now          = new Date();
   const todayKey     = getDayKey(now);
   const yesterdayKey = getDayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
-  const todaySessions     = getSessionsForDay(todayKey).filter(isProductive);
-  const yesterdaySessions = getSessionsForDay(yesterdayKey).filter(isProductive);
-  const todayMs     = sumDuration(todaySessions);
-  const yesterdayMs = sumDuration(yesterdaySessions);
+  const todayMs     = sumDuration(getSessionsForDay(todayKey).filter(isProductive));
+  const yesterdayMs = sumDuration(getSessionsForDay(yesterdayKey).filter(isProductive));
   const delta       = todayMs - yesterdayMs;
 
   todayTotal.textContent     = formatDuration(todayMs);
   yesterdayTotal.textContent = formatDuration(yesterdayMs);
 
-  if (todayMs === 0 && yesterdayMs === 0) {
-    dailyDelta.textContent = "— vs yesterday";
-  } else {
-    dailyDelta.textContent =
-      `${delta >= 0 ? "+" : "-"}${formatDuration(Math.abs(delta))} vs yesterday`;
-  }
+  dailyDelta.textContent =
+    todayMs === 0 && yesterdayMs === 0
+      ? "— vs yesterday"
+      : `${delta >= 0 ? "+" : "-"}${formatDuration(Math.abs(delta))} vs yesterday`;
 
-  bestHourEl.textContent = getBestHour(todaySessions);
-
-  const score = getProductivityScore();
+  bestHourEl.textContent  = getBestHour(getSessionsForDay(todayKey).filter(isProductive));
+  const score             = getProductivityScore();
   productivityEl.textContent = score === null ? "—" : `${score}%`;
 }
 
@@ -403,20 +518,19 @@ function renderBreakdown() {
 }
 
 function renderWeeklyChart() {
-  const data     = getWeeklyData();
-  const maxMs    = Math.max(...data.map((d) => d.ms), 1);
+  const data      = getWeeklyData();
+  const maxMs     = Math.max(...data.map((d) => d.ms), 1);
   const weekTotal = sumDuration(data.map((d) => ({ duration: d.ms })));
 
   weeklyBadge.textContent = `${formatDuration(weekTotal)} this week`;
 
   weeklyChart.innerHTML = data
     .map((d) => {
-      const heightPct = Math.round((d.ms / maxMs) * 100);
-      const barStyle  = `height: ${heightPct}%`;
+      const pct = Math.round((d.ms / maxMs) * 100);
       return `
         <div class="chart-col${d.isToday ? " is-today" : ""}${d.ms === 0 ? " is-empty" : ""}">
           <div class="chart-bar-outer">
-            <div class="chart-bar" style="${barStyle}" title="${formatDuration(d.ms)}"></div>
+            <div class="chart-bar" style="height: ${pct}%" title="${formatDuration(d.ms)}"></div>
           </div>
           <span class="chart-day">${d.dayName}</span>
         </div>
@@ -430,26 +544,18 @@ function renderInsights() {
   const longest = getLongestStreak();
   const active  = getDaysActiveThisWeek();
 
-  // Streak card
-  streakNumber.textContent   = streak;
-  longestStreak.textContent  = longest + (longest === 1 ? " day" : " days");
-  daysThisWeek.textContent   = active  + (active  === 1 ? " day" : " days");
+  streakNumber.textContent  = streak;
+  longestStreak.textContent = longest + (longest === 1 ? " day" : " days");
+  daysThisWeek.textContent  = active  + (active  === 1 ? " day" : " days");
+  streakMsg.textContent     =
+    streak === 0 ? "Log a session today to start your streak." :
+    streak === 1 ? "Day one. Keep it going tomorrow." :
+                   `${streak} days strong. Don't break the chain.`;
 
-  if (streak === 0) {
-    streakMsg.textContent = "Log a session today to start your streak.";
-  } else if (streak === 1) {
-    streakMsg.textContent = "Day one. Keep it going tomorrow.";
-  } else {
-    streakMsg.textContent = `${streak} days strong. Don't break the chain.`;
-  }
-
-  // Peak patterns
-  bestDayEl.textContent  = getBestDayOfWeek();
-  bestHour2.textContent  = getBestHour(sessions.filter(isProductive));
+  bestDayEl.textContent    = getBestDayOfWeek();
+  bestHour2.textContent    = getBestHour(sessions.filter(isProductive));
   avgSessionEl.textContent = getAvgSession();
-  totalAllTime.textContent = sessions.length
-    ? formatDuration(sumDuration(sessions))
-    : "—";
+  totalAllTime.textContent = sessions.length ? formatDuration(sumDuration(sessions)) : "—";
 
   renderWeeklyChart();
 }
@@ -459,12 +565,9 @@ function renderHistory() {
   sessionList.innerHTML = sessions
     .slice(0, 14)
     .map((session) => {
-      const endedAt  = new Date(session.endedAt);
+      const endedAt   = new Date(session.endedAt);
       const timeLabel = endedAt.toLocaleString([], {
-        month:   "short",
-        day:     "numeric",
-        hour:    "numeric",
-        minute:  "2-digit",
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
       });
       return `
         <li class="session-item">
@@ -490,19 +593,22 @@ function render() {
 
 // ─── Voice ────────────────────────────────────────────────
 
+let recognition  = null;
+let voiceEnabled = false;
+
 function setupVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    voiceButton.disabled     = true;
-    voiceButton.textContent  = "No voice";
-    voiceButton.title        = "Voice commands not supported in this browser.";
+    voiceButton.disabled    = true;
+    voiceButton.textContent = "No voice";
+    voiceButton.title       = "Voice commands not supported in this browser.";
     return;
   }
 
-  recognition               = new SR();
-  recognition.continuous    = true;
+  recognition                = new SR();
+  recognition.continuous     = true;
   recognition.interimResults = false;
-  recognition.lang          = "en-US";
+  recognition.lang           = "en-US";
 
   recognition.addEventListener("result", (event) => {
     const transcript = [...event.results]
@@ -530,10 +636,10 @@ function startVoiceRecognition() {
 }
 
 function handleVoiceCommand(transcript) {
-  if (transcript.includes("start")  || transcript.includes("resume"))      startTimer();
-  if (transcript.includes("pause")  || transcript.includes("stop"))        pauseTimer();
-  if (transcript.includes("save")   || transcript.includes("log"))         saveSession();
-  if (transcript.includes("reset")  || transcript.includes("clear"))       resetTimer();
+  if (transcript.includes("start")  || transcript.includes("resume"))  startTimer();
+  if (transcript.includes("pause")  || transcript.includes("stop"))    pauseTimer();
+  if (transcript.includes("save")   || transcript.includes("log"))     saveSession();
+  if (transcript.includes("reset")  || transcript.includes("clear"))   resetTimer();
   modes.forEach((mode) => {
     if (transcript.includes(mode.id) || transcript.includes(mode.label.toLowerCase())) {
       setMode(mode.id);
@@ -543,16 +649,11 @@ function handleVoiceCommand(transcript) {
 
 // ─── Event listeners ──────────────────────────────────────
 
-modeButtons.forEach((btn) => {
-  btn.addEventListener("click", () => setMode(btn.dataset.mode));
-});
+modeButtons.forEach((btn) => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
 
-startPauseBtn.addEventListener("click", () => {
-  startedAt ? pauseTimer() : startTimer();
-});
-
-saveButton.addEventListener("click",  saveSession);
-resetButton.addEventListener("click", resetTimer);
+startPauseBtn.addEventListener("click",  () => startedAt ? pauseTimer() : startTimer());
+saveButton.addEventListener("click",     saveSession);
+resetButton.addEventListener("click",    resetTimer);
 
 sessionForm.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -579,4 +680,4 @@ voiceButton.addEventListener("click", () => {
 // ─── Init ─────────────────────────────────────────────────
 
 setupVoice();
-render();
+initFirebase();
