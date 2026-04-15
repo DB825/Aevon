@@ -16,4 +16,4 @@
 //   → Generate new private key → download JSON → copy the three values above
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CLERK_PUBLISHABLE_KEY = "YOUR_CLERK_PUBLISHABLE_KEY";
+const CLERK_PUBLISHABLE_KEY = "pk_test_am9pbnQtYnVsbGZyb2ctNDEuY2xlcmsuYWNjb3VudHMuZGV2JA";
