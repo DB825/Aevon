@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aevon</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb bg-orb--a"></div>
+    <div class="bg-orb bg-orb--b"></div>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <span>Aevon</span>
+        </div>
+        <div class="header-right">
+          <div class="streak-pill" id="streak-pill">
+            <span class="streak-pip"></span>
+            <span id="header-streak">0</span>&thinsp;day streak
+          </div>
+          <div class="header-date" id="header-date"></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+
+      <!-- Hero / Timer -->
+      <section class="hero">
+        <div class="hero-inner">
+          <div class="hero-copy">
+            <p class="eyebrow">Focus</p>
+            <h1>Track every<br>session<br>that counts.</h1>
+            <p class="lede">One adaptive stopwatch for study, projects, work, and downtime — with insights that make effort visible.</p>
+          </div>
+
+          <div class="timer-widget" id="timer-widget">
+            <div class="mode-row" role="radiogroup" aria-label="Tracking mode">
+              <button class="mode-btn is-active" data-mode="study" type="button" role="radio" aria-checked="true">Study</button>
+              <button class="mode-btn" data-mode="projects" type="button" role="radio" aria-checked="false">Projects</button>
+              <button class="mode-btn" data-mode="work" type="button" role="radio" aria-checked="false">Work</button>
+              <button class="mode-btn" data-mode="entertainment" type="button" role="radio" aria-checked="false">Entertainment</button>
+            </div>
+
+            <div class="timer-face">
+              <p class="mode-label" id="active-label">Tracking study</p>
+              <output class="time-display" id="time-output">00:00:00</output>
+              <p class="status-line" id="run-status" aria-live="polite">Ready when you are.</p>
+            </div>
+
+            <div class="control-row">
+              <button id="start-pause" class="btn-primary" type="button">Start</button>
+              <button id="save-session" class="btn-ghost" type="button">Save</button>
+              <button id="reset-session" class="btn-ghost" type="button">Reset</button>
+              <button id="voice-toggle" class="btn-ghost" type="button">Voice</button>
+            </div>
+
+            <form id="session-form" class="note-form">
+              <input
+                id="session-note"
+                name="session-note"
+                type="text"
+                autocomplete="off"
+                placeholder="Add a note — lecture 4, client spec..."
+              />
+              <button type="submit" class="btn-log">Log</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Today snapshot -->
+      <section class="today-section">
+        <div class="section-wrap">
+          <div class="section-head">
+            <p class="eyebrow">Today</p>
+            <h2>At a glance</h2>
+          </div>
+          <div class="today-grid">
+            <article class="stat-card stat-card--primary">
+              <p class="stat-label">Total focused</p>
+              <strong class="stat-value" id="today-total">0m</strong>
+              <p class="stat-sub" id="daily-delta">— vs yesterday</p>
+            </article>
+            <article class="stat-card">
+              <p class="stat-label">Yesterday</p>
+              <strong class="stat-value" id="yesterday-total">0m</strong>
+            </article>
+            <article class="stat-card">
+              <p class="stat-label">Productivity</p>
+              <strong class="stat-value" id="productivity-score">—</strong>
+              <p class="stat-sub">of tracked time</p>
+            </article>
+            <article class="stat-card">
+              <p class="stat-label">Best hour</p>
+              <strong class="stat-value stat-value--md" id="best-hour">—</strong>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Insights -->
+      <section class="insights-section">
+        <div class="section-wrap">
+          <div class="section-head">
+            <p class="eyebrow">Insights</p>
+            <h2>Your patterns</h2>
+          </div>
+          <div class="insights-grid">
+
+            <!-- Weekly chart (full width) -->
+            <div class="insight-card insight-card--chart">
+              <div class="card-head">
+                <h3>Weekly overview</h3>
+                <span class="badge" id="weekly-badge">—</span>
+              </div>
+              <div class="weekly-chart" id="weekly-chart" aria-label="Productive hours per day, last 7 days"></div>
+            </div>
+
+            <!-- Mode breakdown -->
+            <div class="insight-card insight-card--breakdown">
+              <div class="card-head">
+                <h3>Mode mix</h3>
+                <span class="badge">Today</span>
+              </div>
+              <div id="breakdown-list" class="breakdown-list"></div>
+            </div>
+
+            <!-- Streak -->
+            <div class="insight-card insight-card--streak">
+              <div class="card-head">
+                <h3>Streak</h3>
+              </div>
+              <div class="streak-hero">
+                <span class="streak-number" id="streak-number">0</span>
+                <span class="streak-unit">days</span>
+              </div>
+              <p class="streak-msg" id="streak-msg">Log a session to start.</p>
+              <div class="streak-meta">
+                <div class="streak-meta-item">
+                  <span>Longest</span>
+                  <strong id="longest-streak">—</strong>
+                </div>
+                <div class="streak-meta-item">
+                  <span>This week</span>
+                  <strong id="days-this-week">—</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Peak patterns -->
+            <div class="insight-card insight-card--peaks">
+              <div class="card-head">
+                <h3>Peak patterns</h3>
+              </div>
+              <ul class="peak-list">
+                <li class="peak-item">
+                  <span>Best day of week</span>
+                  <strong id="best-day">—</strong>
+                </li>
+                <li class="peak-item">
+                  <span>Best hour</span>
+                  <strong id="best-hour-2">—</strong>
+                </li>
+                <li class="peak-item">
+                  <span>Avg session</span>
+                  <strong id="avg-session">—</strong>
+                </li>
+                <li class="peak-item">
+                  <span>All-time focused</span>
+                  <strong id="total-all-time">—</strong>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- History -->
+      <section class="history-section">
+        <div class="section-wrap">
+          <div class="section-head">
+            <p class="eyebrow">Log</p>
+            <h2>Recent sessions</h2>
+          </div>
+          <div id="empty-state" class="empty-state">Your saved sessions will appear here.</div>
+          <ol id="session-list" class="session-list"></ol>
+        </div>
+      </section>
+
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
