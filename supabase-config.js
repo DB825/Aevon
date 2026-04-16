@@ -31,5 +31,5 @@
 // Both values below are safe to commit — security is enforced by row-level security.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SUPABASE_URL      = "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const SUPABASE_URL      = "https://pxxrguzgpvrkhlflacsb.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4eHJndXpncHZya2hsZmxhY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyOTEwMzcsImV4cCI6MjA5MTg2NzAzN30.dNs0h6qq5dMQPCurV_nn6zJsDyikb3WPWoPTDTFj5x4";
