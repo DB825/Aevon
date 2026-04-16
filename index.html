@@ -13,15 +13,12 @@
     <header class="site-header">
       <div class="header-inner">
         <div class="brand">
-          <!-- Live clock logo — hands updated by JS every minute -->
           <svg class="brand-clock" id="brand-clock" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
             <circle cx="12" cy="12" r="10.5" fill="none" stroke="#4ade80" stroke-width="1.4"/>
-            <!-- tick marks -->
             <line x1="12" y1="2.5"  x2="12" y2="4.2"  stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
             <line x1="21.5" y1="12" x2="19.8" y2="12" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
             <line x1="12" y1="21.5" x2="12" y2="19.8" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
             <line x1="2.5" y1="12"  x2="4.2" y2="12"  stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
-            <!-- hands injected by JS -->
             <g id="brand-clock-hands"></g>
             <circle cx="12" cy="12" r="1.4" fill="#4ade80"/>
           </svg>
@@ -42,7 +39,6 @@
 
     <main>
 
-      <!-- Hero / Timer -->
       <section class="hero">
         <div class="hero-inner">
           <div class="hero-copy">
@@ -53,40 +49,31 @@
 
           <div class="timer-widget" id="timer-widget">
             <div class="mode-row" role="radiogroup" aria-label="Tracking mode">
-              <button class="mode-btn is-active" data-mode="study"         type="button" role="radio" aria-checked="true">Study</button>
-              <button class="mode-btn"            data-mode="projects"     type="button" role="radio" aria-checked="false">Projects</button>
-              <button class="mode-btn"            data-mode="work"         type="button" role="radio" aria-checked="false">Work</button>
-              <button class="mode-btn"            data-mode="entertainment"type="button" role="radio" aria-checked="false">Entertainment</button>
+              <button class="mode-btn is-active" data-mode="study"          type="button" role="radio" aria-checked="true">Study</button>
+              <button class="mode-btn"            data-mode="projects"      type="button" role="radio" aria-checked="false">Projects</button>
+              <button class="mode-btn"            data-mode="work"          type="button" role="radio" aria-checked="false">Work</button>
+              <button class="mode-btn"            data-mode="entertainment" type="button" role="radio" aria-checked="false">Entertainment</button>
             </div>
-
             <div class="timer-face">
               <p class="mode-label" id="active-label">Tracking study</p>
               <output class="time-display" id="time-output">00:00:00</output>
               <p class="status-line" id="run-status" aria-live="polite">Ready when you are.</p>
             </div>
-
             <div class="control-row">
-              <button id="start-pause" class="btn-primary" type="button">Start</button>
-              <button id="save-session" class="btn-ghost"  type="button">Save</button>
-              <button id="reset-session" class="btn-ghost" type="button">Reset</button>
-              <button id="voice-toggle" class="btn-ghost"  type="button">Voice</button>
+              <button id="start-pause"  class="btn-primary" type="button">Start</button>
+              <button id="save-session" class="btn-ghost"   type="button">Save</button>
+              <button id="reset-session"class="btn-ghost"   type="button">Reset</button>
+              <button id="voice-toggle" class="btn-ghost"   type="button">Voice</button>
             </div>
-
             <form id="session-form" class="note-form">
-              <input
-                id="session-note"
-                name="session-note"
-                type="text"
-                autocomplete="off"
-                placeholder="Add a note — lecture 4, client spec..."
-              />
+              <input id="session-note" name="session-note" type="text" autocomplete="off"
+                     placeholder="Add a note — lecture 4, client spec..." />
               <button type="submit" class="btn-log">Log</button>
             </form>
           </div>
         </div>
       </section>
 
-      <!-- Today snapshot -->
       <section class="today-section">
         <div class="section-wrap">
           <div class="section-head">
@@ -116,37 +103,27 @@
         </div>
       </section>
 
-      <!-- Insights -->
       <section class="insights-section">
         <div class="section-wrap">
           <div class="section-head">
             <p class="eyebrow">Insights</p>
             <h2>Your patterns</h2>
           </div>
-
           <div class="insights-grid">
 
-            <!-- 24-hour activity clock (left column) -->
             <div class="insight-card insight-card--clock">
               <div class="card-head">
                 <h3>Your day</h3>
                 <span class="badge">24h</span>
               </div>
               <div class="clock-face-wrap">
-                <svg
-                  id="day-clock"
-                  viewBox="0 0 280 280"
-                  width="100%"
-                  role="img"
-                  aria-label="24-hour activity clock showing today's sessions"
-                ></svg>
+                <svg id="day-clock" viewBox="0 0 280 280" width="100%"
+                     role="img" aria-label="24-hour activity clock showing today's sessions"></svg>
               </div>
               <ul class="clock-legend" id="clock-legend" aria-label="Activity legend"></ul>
             </div>
 
-            <!-- Right column: chart + bottom cards -->
             <div class="insights-right">
-
               <div class="insight-card insight-card--chart">
                 <div class="card-head">
                   <h3>Weekly overview</h3>
@@ -156,7 +133,6 @@
               </div>
 
               <div class="insights-bottom">
-
                 <div class="insight-card insight-card--breakdown">
                   <div class="card-head">
                     <h3>Mode mix</h3>
@@ -187,25 +163,12 @@
                 <div class="insight-card insight-card--peaks">
                   <div class="card-head"><h3>Peak patterns</h3></div>
                   <ul class="peak-list">
-                    <li class="peak-item">
-                      <span>Best day</span>
-                      <strong id="best-day">—</strong>
-                    </li>
-                    <li class="peak-item">
-                      <span>Best hour</span>
-                      <strong id="best-hour-2">—</strong>
-                    </li>
-                    <li class="peak-item">
-                      <span>Avg session</span>
-                      <strong id="avg-session">—</strong>
-                    </li>
-                    <li class="peak-item">
-                      <span>All-time</span>
-                      <strong id="total-all-time">—</strong>
-                    </li>
+                    <li class="peak-item"><span>Best day</span><strong id="best-day">—</strong></li>
+                    <li class="peak-item"><span>Best hour</span><strong id="best-hour-2">—</strong></li>
+                    <li class="peak-item"><span>Avg session</span><strong id="avg-session">—</strong></li>
+                    <li class="peak-item"><span>All-time</span><strong id="total-all-time">—</strong></li>
                   </ul>
                 </div>
-
               </div>
             </div>
 
@@ -213,7 +176,6 @@
         </div>
       </section>
 
-      <!-- History -->
       <section class="history-section">
         <div class="section-wrap">
           <div class="section-head">
@@ -227,15 +189,13 @@
 
     </main>
 
-    <!-- Firebase (Firestore only — Auth handled via custom token from API) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js"></script>
-
     <!-- Clerk -->
     <script src="clerk-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" crossorigin="anonymous"></script>
+
+    <!-- Supabase -->
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
     <script src="app.js"></script>
   </body>
