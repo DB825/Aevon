@@ -57,6 +57,7 @@ const modalRoot        = document.querySelector("#modal-root");
 const modalBody        = document.querySelector("#modal-body");
 const modalTitle       = document.querySelector("#modal-title");
 const themeToggleBtn   = document.querySelector("#theme-toggle");
+const shortcutsBtn     = document.querySelector("#shortcuts-btn");
 const exportCsvBtn     = document.querySelector("#export-csv");
 
 // ─── State ────────────────────────────────────────────────
@@ -1269,6 +1270,37 @@ function openGoalModal() {
   });
 }
 
+// ─── Shortcuts cheatsheet ─────────────────────────────────
+
+const SHORTCUTS = [
+  { keys: ["Space"],    label: "Start / pause timer" },
+  { keys: ["S"],        label: "Save current session" },
+  { keys: ["R"],        label: "Reset timer" },
+  { keys: ["N"],        label: "Focus the note field" },
+  { keys: ["M"],        label: "Log a past session" },
+  { keys: ["G"],        label: "Open preferences" },
+  { keys: ["T"],        label: "Toggle light / dark" },
+  { keys: ["?"],        label: "Show this cheatsheet" },
+  { keys: ["Esc"],      label: "Close any open dialog" },
+];
+
+function openShortcutsModal() {
+  const rows = SHORTCUTS.map((s) => `
+    <li class="shortcut-row">
+      <span class="shortcut-label">${escapeHtml(s.label)}</span>
+      <span class="shortcut-keys">${s.keys.map((k) => `<kbd>${escapeHtml(k)}</kbd>`).join("")}</span>
+    </li>
+  `).join("");
+
+  openModal("Keyboard shortcuts", `
+    <p class="tag-hint" style="margin:-4px 0 6px;">Disabled while typing in a field or with a dialog open.</p>
+    <ul class="shortcut-list">${rows}</ul>
+    <div class="modal-actions">
+      <button class="btn-primary" type="button" data-modal-close>Got it</button>
+    </div>
+  `);
+}
+
 // ─── Event listeners ──────────────────────────────────────
 
 modeButtons.forEach((btn) => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
@@ -1305,6 +1337,9 @@ sessionList.addEventListener("click", (e) => {
 // Theme toggle
 themeToggleBtn.addEventListener("click", toggleTheme);
 
+// Shortcuts cheatsheet
+shortcutsBtn.addEventListener("click", openShortcutsModal);
+
 // CSV export
 exportCsvBtn.addEventListener("click", exportCsv);
 
@@ -1340,6 +1375,7 @@ document.addEventListener("keydown", (e) => {
     case "m": e.preventDefault(); openManualLogModal(); break;
     case "g": e.preventDefault(); openGoalModal();      break;
     case "t": e.preventDefault(); toggleTheme();        break;
+    case "?": e.preventDefault(); openShortcutsModal(); break;
   }
 });
 voiceButton.addEventListener("click", () => {

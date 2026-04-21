@@ -1287,6 +1287,52 @@ button, .btn-log {
   border-color: var(--coral);
 }
 
+/* ─── Shortcuts list ─── */
+.shortcut-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.shortcut-row:last-child { border-bottom: none; }
+
+.shortcut-label { color: var(--text); }
+
+.shortcut-keys {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
 /* ─── Theme toggle ─── */
 .theme-toggle {
   display: grid;
