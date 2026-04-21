@@ -163,7 +163,14 @@ async function initAuth() {
   }
 
   try {
-    const clerk = new window.Clerk(CLERK_PUBLISHABLE_KEY);
+    // Wait for the Clerk CDN script (loaded with `async`) to populate window.Clerk
+    const start = Date.now();
+    while (!window.Clerk && Date.now() - start < 10000) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+    if (!window.Clerk) throw new Error("Clerk SDK failed to load");
+
+    const clerk = window.Clerk;
     await clerk.load({
       appearance: {
         variables: {
