@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <script>
+      // Apply stored theme before paint to avoid flash
+      (function () {
+        try {
+          var t = localStorage.getItem("aevon.theme.v1");
+          if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
     <div class="bg-orb bg-orb--a"></div>
     <div class="bg-orb bg-orb--b"></div>
 
@@ -30,6 +40,10 @@
             <span id="header-streak">0</span>&thinsp;day streak
           </div>
           <div class="header-date" id="header-date"></div>
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+            <svg class="theme-icon theme-icon--moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="theme-icon theme-icon--sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          </button>
           <div class="auth-area" id="auth-area">
             <div class="auth-spinner"></div>
           </div>
@@ -209,9 +223,15 @@
 
       <section class="history-section">
         <div class="section-wrap">
-          <div class="section-head">
-            <p class="eyebrow">Log</p>
-            <h2>Recent sessions</h2>
+          <div class="section-head--row">
+            <div class="section-head">
+              <p class="eyebrow">Log</p>
+              <h2>Recent sessions</h2>
+            </div>
+            <button class="btn-export" id="export-csv" type="button" title="Export all sessions as CSV">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
+              Export CSV
+            </button>
           </div>
           <div id="empty-state" class="empty-state">Your saved sessions will appear here.</div>
           <ol id="session-list" class="session-list"></ol>

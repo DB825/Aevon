@@ -56,6 +56,8 @@ const goalEditBtn      = document.querySelector("#goal-edit-btn");
 const modalRoot        = document.querySelector("#modal-root");
 const modalBody        = document.querySelector("#modal-body");
 const modalTitle       = document.querySelector("#modal-title");
+const themeToggleBtn   = document.querySelector("#theme-toggle");
+const exportCsvBtn     = document.querySelector("#export-csv");
 
 // ─── State ────────────────────────────────────────────────
 
@@ -69,13 +71,20 @@ let currentUser  = null;   // { id, name, avatar }
 let clerkSession = null;   // Clerk Session object (used to get fresh JWTs)
 
 // Timer type: "stopwatch" | "countdown"
-const goalKey     = "aevon.goalMinutes.v1";
-const timerTypeKey= "aevon.timerType.v1";
-const cdTargetKey = "aevon.countdownMinutes.v1";
+const goalKey       = "aevon.goalMinutes.v1";
+const timerTypeKey  = "aevon.timerType.v1";
+const cdTargetKey   = "aevon.countdownMinutes.v1";
+const themeKey      = "aevon.theme.v1";
+const pauseBlurKey  = "aevon.pauseOnBlur.v1";
 let timerType       = localStorage.getItem(timerTypeKey) || "stopwatch";
 let countdownTarget = Number(localStorage.getItem(cdTargetKey)) || 45;  // minutes
 let countdownDone   = false;
 let dailyGoalMin    = Number(localStorage.getItem(goalKey)) || 240;     // 4h default
+let theme           = localStorage.getItem(themeKey) ||
+  (matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark");
+let pauseOnBlur     = localStorage.getItem(pauseBlurKey) === "true"; // opt-in
+let blurTimer       = null;
+let prefsSyncTimer  = null; // debounce outbound pref writes
 
 // ─── Supabase helpers ─────────────────────────────────────
 
@@ -104,11 +113,12 @@ function rowToSession(row) {
     endedAt:   row.ended_at,
     day:       row.day,
     hour:      row.hour,
+    tags:      Array.isArray(row.tags) ? row.tags : [],
   };
 }
 
 function sessionToRow(session) {
-  return {
+  const row = {
     id:         session.id,
     user_id:    currentUser.id,
     mode:       session.mode,
@@ -119,18 +129,31 @@ function sessionToRow(session) {
     day:        session.day,
     hour:       session.hour,
   };
+  // Only include tags if the column exists / we have any — harmless if schema is up-to-date
+  if (Array.isArray(session.tags) && session.tags.length) row.tags = session.tags;
+  return row;
 }
 
 async function loadSessionsFromSupabase() {
   const db = await getDb();
   if (!db) return null;
 
-  const { data, error } = await db
+  // Try with tags column; fall back if the column doesn't exist yet
+  let { data, error } = await db
     .from("sessions")
-    .select("id, mode, note, duration, started_at, ended_at, day, hour")
+    .select("id, mode, note, duration, started_at, ended_at, day, hour, tags")
     .eq("user_id", currentUser.id)
     .order("ended_at", { ascending: false })
     .limit(200);
+
+  if (error && /tags/i.test(error.message || "")) {
+    ({ data, error } = await db
+      .from("sessions")
+      .select("id, mode, note, duration, started_at, ended_at, day, hour")
+      .eq("user_id", currentUser.id)
+      .order("ended_at", { ascending: false })
+      .limit(200));
+  }
 
   if (error) throw error;
   return data.map(rowToSession);
@@ -150,6 +173,67 @@ async function migrateLocalToSupabase() {
   if (!db) return;
   const { error } = await db.from("sessions").upsert(local.map(sessionToRow));
   if (!error) localStorage.removeItem(storageKey);
+}
+
+// ─── Preferences sync ─────────────────────────────────────
+// Fails gracefully if the `preferences` table doesn't exist yet.
+
+async function loadPreferencesFromSupabase() {
+  const db = await getDb();
+  if (!db) return null;
+  const { data, error } = await db
+    .from("preferences")
+    .select("goal_minutes, timer_type, countdown_minutes, theme, pause_on_blur")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+  if (error) {
+    if (!/does not exist|relation/i.test(error.message || "")) {
+      console.warn("Preferences load:", error.message);
+    }
+    return null;
+  }
+  return data;
+}
+
+async function savePreferencesToSupabase() {
+  if (!currentUser) return;
+  const db = await getDb();
+  if (!db) return;
+  const row = {
+    user_id:            currentUser.id,
+    goal_minutes:       dailyGoalMin,
+    timer_type:         timerType,
+    countdown_minutes:  countdownTarget,
+    theme:              theme,
+    pause_on_blur:      pauseOnBlur,
+    updated_at:         new Date().toISOString(),
+  };
+  const { error } = await db.from("preferences").upsert(row, { onConflict: "user_id" });
+  if (error && !/does not exist|relation/i.test(error.message || "")) {
+    console.warn("Preferences save:", error.message);
+  }
+}
+
+// Debounced sync — each prefs change writes once per 400ms
+function schedulePrefsSync() {
+  if (!currentUser) return;
+  clearTimeout(prefsSyncTimer);
+  prefsSyncTimer = setTimeout(savePreferencesToSupabase, 400);
+}
+
+function applyPreferencesFromRow(prefs) {
+  if (!prefs) return;
+  if (typeof prefs.goal_minutes      === "number") { dailyGoalMin    = prefs.goal_minutes; }
+  if (typeof prefs.countdown_minutes === "number") { countdownTarget = prefs.countdown_minutes; }
+  if (prefs.timer_type === "stopwatch" || prefs.timer_type === "countdown") { timerType = prefs.timer_type; }
+  if (prefs.theme === "light" || prefs.theme === "dark")                    { theme     = prefs.theme;     }
+  if (typeof prefs.pause_on_blur === "boolean")                             { pauseOnBlur = prefs.pause_on_blur; }
+  // Mirror to localStorage so signed-out devices start with the last-known values
+  localStorage.setItem(goalKey,      String(dailyGoalMin));
+  localStorage.setItem(cdTargetKey,  String(countdownTarget));
+  localStorage.setItem(timerTypeKey, timerType);
+  localStorage.setItem(themeKey,     theme);
+  localStorage.setItem(pauseBlurKey, String(pauseOnBlur));
 }
 
 // ─── Local storage ────────────────────────────────────────
@@ -243,6 +327,17 @@ async function connectDatabase() {
     }
 
     sessions = data;
+
+    // Load preferences from Supabase (if the table exists); reflect in UI
+    const prefs = await loadPreferencesFromSupabase();
+    if (prefs) {
+      applyPreferencesFromRow(prefs);
+      syncTimerTypeUI();
+      applyTheme();
+    } else {
+      // No remote prefs yet — push current local values up so this becomes "device-of-record"
+      savePreferencesToSupabase();
+    }
   } catch (err) {
     console.error("Database connect failed, using localStorage:", err.message);
     sessions = loadSessionsLocal();
@@ -544,21 +639,118 @@ function playChime() {
   } catch {}
 }
 
+function syncTimerTypeUI() {
+  typeButtons.forEach((btn) => {
+    const active = btn.dataset.type === timerType;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+  countdownPresets.hidden = timerType !== "countdown";
+  presetButtons.forEach((btn) =>
+    btn.classList.toggle("is-active", Number(btn.dataset.minutes) === countdownTarget));
+  if (!startedAt) {
+    timeOutput.textContent = timerType === "countdown"
+      ? formatClock(countdownTargetMs()) : formatClock(elapsedMs || 0);
+  }
+}
+
+// ─── Theme ────────────────────────────────────────────────
+
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
+function toggleTheme() {
+  theme = theme === "dark" ? "light" : "dark";
+  localStorage.setItem(themeKey, theme);
+  applyTheme();
+  schedulePrefsSync();
+}
+
+// ─── CSV export ───────────────────────────────────────────
+
+function csvEscape(v) {
+  const s = v == null ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function exportCsv() {
+  if (!sessions.length) return;
+  const rows = [["id","mode","note","tags","duration_minutes","started_at","ended_at","day"]];
+  // Oldest first reads more naturally in a spreadsheet
+  [...sessions].reverse().forEach((s) => {
+    rows.push([
+      s.id, s.mode, s.note || "", (s.tags || []).join(" "),
+      Math.round(s.duration / 60000),
+      s.startedAt, s.endedAt, s.day,
+    ]);
+  });
+  const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `aevon-sessions-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ─── Tags ─────────────────────────────────────────────────
+
+function parseTags(raw) {
+  if (!raw) return [];
+  return [...new Set(
+    raw.split(/[\s,]+/)
+       .map((t) => t.trim().replace(/^#+/, "").toLowerCase())
+       .filter((t) => t.length > 0 && t.length <= 32)
+  )].slice(0, 6);
+}
+
+// ─── Pause on blur ────────────────────────────────────────
+// If the timer is running and the tab is hidden for more than 5 minutes,
+// auto-pause. The "away" duration is discarded (so your log reflects only
+// actually-focused time).
+
+const BLUR_PAUSE_MS = 5 * 60 * 1000;
+
+function onVisibilityChange() {
+  if (!pauseOnBlur) return;
+  if (document.hidden) {
+    if (startedAt) {
+      clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
+        if (startedAt) {
+          // Rewind elapsedMs so the hidden time doesn't count
+          elapsedMs = Math.max(0, getElapsedMs() - BLUR_PAUSE_MS);
+          startedAt = null;
+          cancelAnimationFrame(rafId);
+          startPauseBtn.textContent = "Resume";
+          startPauseBtn.classList.remove("is-running");
+          timerWidget.classList.remove("is-running");
+          timeOutput.textContent = formatClock(displayMs());
+          runStatus.textContent = "Auto-paused — you stepped away.";
+        }
+      }, BLUR_PAUSE_MS);
+    }
+  } else {
+    clearTimeout(blurTimer);
+  }
+}
+
 function setTimerType(type) {
   if (type === timerType) return;
   if (startedAt) pauseTimer();
   timerType = type;
   localStorage.setItem(timerTypeKey, type);
-  typeButtons.forEach((btn) => {
-    const active = btn.dataset.type === type;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-selected", String(active));
-  });
-  countdownPresets.hidden = type !== "countdown";
+  syncTimerTypeUI();
   resetTimerInternal();
   runStatus.textContent = type === "countdown"
     ? `Countdown set to ${countdownTarget}m. Press Start.`
     : "Ready when you are.";
+  schedulePrefsSync();
 }
 
 function setCountdownTarget(minutes, source = "preset") {
@@ -570,6 +762,7 @@ function setCountdownTarget(minutes, source = "preset") {
     btn.classList.toggle("is-active",
       source === "preset" && Number(btn.dataset.minutes) === m));
   if (!startedAt) resetTimerInternal();
+  schedulePrefsSync();
 }
 
 // ─── Session logic ────────────────────────────────────────
@@ -581,9 +774,9 @@ function createId() {
   return globalThis.crypto?.randomUUID?.() ?? `s-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createSession(duration, mode, note) {
+function createSession(duration, mode, note, tags = []) {
   const now = new Date(), start = new Date(now - duration);
-  return { id: createId(), mode, note, duration,
+  return { id: createId(), mode, note, duration, tags,
            startedAt: start.toISOString(), endedAt: now.toISOString(),
            day: getDayKey(now), hour: start.getHours() };
 }
@@ -627,11 +820,12 @@ function saveSession() {
 
 // ─── Manual log / update / delete ─────────────────────────
 
-function logManualSession({ mode, duration, startedAt: startIso, note }) {
+function logManualSession({ mode, duration, startedAt: startIso, note, tags }) {
   const start = startIso ? new Date(startIso) : new Date(Date.now() - duration);
   const end   = new Date(start.getTime() + duration);
   const session = {
     id: createId(), mode, note: note || "", duration,
+    tags: tags || [],
     startedAt: start.toISOString(), endedAt: end.toISOString(),
     day: getDayKey(end), hour: start.getHours(),
   };
@@ -823,13 +1017,18 @@ function renderInsights() {
 
 function renderHistory() {
   emptyState.classList.toggle("is-hidden", sessions.length > 0);
+  if (exportCsvBtn) exportCsvBtn.disabled = sessions.length === 0;
   sessionList.innerHTML = sessions.slice(0, 14).map((s) => {
     const time = new Date(s.endedAt).toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+    const tagsHtml = (s.tags || []).length
+      ? `<div class="session-tags">${s.tags.map((t) => `<span class="tag-chip">#${escapeHtml(t)}</span>`).join("")}</div>`
+      : "";
     return `<li class="session-item" data-session-id="${s.id}">
       <span class="session-mode" data-mode="${s.mode}">${getModeLabel(s.mode)}</span>
       <div class="session-info">
         <div class="session-meta">${time}</div>
         <div class="session-note${s.note ? "" : " is-empty"}">${escapeHtml(s.note || "No note added")}</div>
+        ${tagsHtml}
       </div>
       <strong class="session-duration">${formatDuration(s.duration)}</strong>
       <button class="session-edit" type="button" data-edit-id="${s.id}" aria-label="Edit session">Edit</button>
@@ -933,6 +1132,11 @@ function openManualLogModal() {
       <label class="field-label" for="ml-note">Note (optional)</label>
       <input class="field-input" id="ml-note" type="text" placeholder="What were you working on?" />
     </div>
+    <div class="field">
+      <label class="field-label" for="ml-tags">Tags (optional)</label>
+      <input class="field-input" id="ml-tags" type="text" placeholder="math, client-x, deep-work" />
+      <span class="tag-hint">Space or comma separated, up to 6.</span>
+    </div>
     <div class="modal-actions">
       <button class="btn-ghost" type="button" data-modal-close>Cancel</button>
       <button class="btn-primary" id="ml-save" type="button">Log session</button>
@@ -945,6 +1149,7 @@ function openManualLogModal() {
       const minutes = Number(document.getElementById("ml-minutes").value) || 0;
       const whenVal = document.getElementById("ml-when").value;
       const note    = document.getElementById("ml-note").value.trim();
+      const tags    = parseTags(document.getElementById("ml-tags").value);
       const duration = (hours * 3600 + minutes * 60) * 1000;
       if (duration < 1000) {
         runStatus.textContent = "Enter a duration before logging.";
@@ -952,7 +1157,7 @@ function openManualLogModal() {
       }
       const endedAt = whenVal ? new Date(whenVal) : new Date();
       const startedIso = new Date(endedAt.getTime() - duration).toISOString();
-      logManualSession({ mode, duration, startedAt: startedIso, note });
+      logManualSession({ mode, duration, startedAt: startedIso, note, tags });
       runStatus.textContent = `Logged ${formatDuration(duration)} of ${getModeLabel(mode).toLowerCase()}.`;
       closeModal();
     });
@@ -970,6 +1175,8 @@ function openEditSessionModal(id) {
   const hours    = Math.floor(totalMin / 60);
   const minutes  = totalMin % 60;
 
+  const tagValue = (s.tags || []).join(" ");
+
   openModal("Edit session", `
     <div class="field">
       <label class="field-label" for="ed-mode">Mode</label>
@@ -986,6 +1193,11 @@ function openEditSessionModal(id) {
       <label class="field-label" for="ed-note">Note</label>
       <input class="field-input" id="ed-note" type="text" value="${escapeHtml(s.note || "")}" placeholder="What were you working on?" />
     </div>
+    <div class="field">
+      <label class="field-label" for="ed-tags">Tags</label>
+      <input class="field-input" id="ed-tags" type="text" value="${escapeHtml(tagValue)}" placeholder="math, client-x, deep-work" />
+      <span class="tag-hint">Space or comma separated, up to 6.</span>
+    </div>
     <div class="modal-actions">
       <button class="btn-danger"  id="ed-delete" type="button">Delete</button>
       <button class="btn-primary" id="ed-save"   type="button">Save</button>
@@ -996,9 +1208,10 @@ function openEditSessionModal(id) {
       const h       = Number(document.getElementById("ed-hours").value)   || 0;
       const m       = Number(document.getElementById("ed-minutes").value) || 0;
       const note    = document.getElementById("ed-note").value.trim();
+      const tags    = parseTags(document.getElementById("ed-tags").value);
       const duration = (h * 3600 + m * 60) * 1000;
       if (duration < 1000) return;
-      updateSession(id, { mode, duration, note });
+      updateSession(id, { mode, duration, note, tags });
       closeModal();
     });
     document.getElementById("ed-delete").addEventListener("click", () => {
@@ -1015,27 +1228,41 @@ function openEditSessionModal(id) {
 function openGoalModal() {
   const hours   = Math.floor(dailyGoalMin / 60);
   const minutes = dailyGoalMin % 60;
-  openModal("Daily focus goal", `
-    <p class="streak-msg" style="margin:0 0 4px;">How much productive time do you want to log each day?</p>
+  openModal("Preferences", `
     <div class="field">
-      <label class="field-label">Target per day</label>
+      <label class="field-label">Daily focus goal</label>
       <div class="field-row">
         <input class="field-input" id="g-hours"   type="number" min="0" max="24" step="1" value="${hours}"   inputmode="numeric" />
         <input class="field-input" id="g-minutes" type="number" min="0" max="59" step="1" value="${minutes}" inputmode="numeric" />
       </div>
+      <span class="tag-hint">Productive time target each day (hours / minutes).</span>
     </div>
+    <label class="toggle-row" for="g-pause">
+      <div class="toggle-row-copy">
+        <span class="toggle-row-title">Pause on inactivity</span>
+        <span class="toggle-row-sub">Auto-pause if you tab away for 5+ minutes.</span>
+      </div>
+      <span class="switch">
+        <input id="g-pause" type="checkbox" ${pauseOnBlur ? "checked" : ""} />
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </span>
+    </label>
     <div class="modal-actions">
       <button class="btn-ghost"   type="button" data-modal-close>Cancel</button>
-      <button class="btn-primary" id="g-save"   type="button">Save goal</button>
+      <button class="btn-primary" id="g-save"   type="button">Save</button>
     </div>
   `, () => {
     document.getElementById("g-save").addEventListener("click", () => {
-      const h = Number(document.getElementById("g-hours").value)   || 0;
-      const m = Number(document.getElementById("g-minutes").value) || 0;
-      const total = Math.max(0, h * 60 + m);
+      const h       = Number(document.getElementById("g-hours").value)   || 0;
+      const m       = Number(document.getElementById("g-minutes").value) || 0;
+      const newPause = document.getElementById("g-pause").checked;
+      const total   = Math.max(0, h * 60 + m);
       if (total === 0) return;
       dailyGoalMin = total;
+      pauseOnBlur  = newPause;
       localStorage.setItem(goalKey, String(total));
+      localStorage.setItem(pauseBlurKey, String(newPause));
+      schedulePrefsSync();
       render();
       closeModal();
     });
@@ -1074,6 +1301,47 @@ sessionList.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-edit-id]");
   if (btn) openEditSessionModal(btn.dataset.editId);
 });
+
+// Theme toggle
+themeToggleBtn.addEventListener("click", toggleTheme);
+
+// CSV export
+exportCsvBtn.addEventListener("click", exportCsv);
+
+// Pause-on-blur listener (checks `pauseOnBlur` flag internally)
+document.addEventListener("visibilitychange", onVisibilityChange);
+
+// ─── Keyboard shortcuts ───────────────────────────────────
+// space = start/pause, s = save, r = reset, n = focus note,
+// m = manual log, g = goal/preferences, t = toggle theme.
+// Ignored while typing in inputs or while a modal is open.
+
+function isTypingTarget(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!modalRoot.hidden) return;                // modal handles its own keys
+  if (isTypingTarget(document.activeElement)) return;
+
+  switch (e.key) {
+    case " ":
+    case "Spacebar":
+      e.preventDefault();
+      startedAt ? pauseTimer() : startTimer();
+      break;
+    case "s": e.preventDefault(); saveSession(); break;
+    case "r": e.preventDefault(); resetTimer();  break;
+    case "n": e.preventDefault(); noteInput.focus(); break;
+    case "m": e.preventDefault(); openManualLogModal(); break;
+    case "g": e.preventDefault(); openGoalModal();      break;
+    case "t": e.preventDefault(); toggleTheme();        break;
+  }
+});
 voiceButton.addEventListener("click", () => {
   if (!recognition) return;
   voiceEnabled = !voiceEnabled;
@@ -1089,16 +1357,11 @@ voiceButton.addEventListener("click", () => {
 
 // ─── Init ─────────────────────────────────────────────────
 
+// Apply theme before first paint
+applyTheme();
+
 // Initialize timer type UI to match persisted state
-typeButtons.forEach((btn) => {
-  const active = btn.dataset.type === timerType;
-  btn.classList.toggle("is-active", active);
-  btn.setAttribute("aria-selected", String(active));
-});
-countdownPresets.hidden = timerType !== "countdown";
-presetButtons.forEach((btn) =>
-  btn.classList.toggle("is-active", Number(btn.dataset.minutes) === countdownTarget));
-if (timerType === "countdown") timeOutput.textContent = formatClock(countdownTargetMs());
+syncTimerTypeUI();
 
 setupVoice();
 renderBrandClock();
