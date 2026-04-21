@@ -48,11 +48,28 @@
           </div>
 
           <div class="timer-widget" id="timer-widget">
+            <div class="timer-toolbar">
+              <div class="timer-type" role="tablist" aria-label="Timer type">
+                <button class="type-btn is-active" data-type="stopwatch" type="button" role="tab" aria-selected="true">Stopwatch</button>
+                <button class="type-btn"            data-type="countdown" type="button" role="tab" aria-selected="false">Countdown</button>
+              </div>
+              <button class="btn-icon" id="manual-log-btn" type="button" title="Log past session" aria-label="Log past session">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Log past</span>
+              </button>
+            </div>
             <div class="mode-row" role="radiogroup" aria-label="Tracking mode">
               <button class="mode-btn is-active" data-mode="study"          type="button" role="radio" aria-checked="true">Study</button>
               <button class="mode-btn"            data-mode="projects"      type="button" role="radio" aria-checked="false">Projects</button>
               <button class="mode-btn"            data-mode="work"          type="button" role="radio" aria-checked="false">Work</button>
               <button class="mode-btn"            data-mode="entertainment" type="button" role="radio" aria-checked="false">Entertainment</button>
+            </div>
+            <div class="countdown-presets" id="countdown-presets" hidden>
+              <button class="preset-btn" data-minutes="25" type="button">25m</button>
+              <button class="preset-btn is-active" data-minutes="45" type="button">45m</button>
+              <button class="preset-btn" data-minutes="60" type="button">60m</button>
+              <button class="preset-btn" data-minutes="90" type="button">90m</button>
+              <input class="preset-custom" id="countdown-custom" type="number" min="1" max="600" step="1" placeholder="Custom" inputmode="numeric" aria-label="Custom minutes" />
             </div>
             <div class="timer-face">
               <p class="mode-label" id="active-label">Tracking study</p>
@@ -81,14 +98,28 @@
             <h2>At a glance</h2>
           </div>
           <div class="today-grid">
-            <article class="stat-card stat-card--primary">
-              <p class="stat-label">Total focused</p>
-              <strong class="stat-value" id="today-total">0m</strong>
-              <p class="stat-sub" id="daily-delta">— vs yesterday</p>
+            <article class="stat-card stat-card--goal" id="goal-card">
+              <div class="goal-ring-wrap">
+                <svg class="goal-ring" viewBox="0 0 120 120" width="92" height="92" aria-hidden="true">
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
+                  <circle id="goal-ring-fg" cx="60" cy="60" r="52" fill="none" stroke="var(--green)"
+                          stroke-width="9" stroke-linecap="round" pathLength="100"
+                          stroke-dasharray="0 100" transform="rotate(-90 60 60)"
+                          style="filter: drop-shadow(0 0 8px rgba(74,222,128,0.5)); transition: stroke-dasharray 0.7s cubic-bezier(0.16,1,0.3,1);"/>
+                  <text id="goal-ring-text" x="60" y="66" text-anchor="middle"
+                        fill="var(--text)" font-size="22" font-weight="800" letter-spacing="-1">0%</text>
+                </svg>
+              </div>
+              <div class="goal-body">
+                <p class="stat-label">Today's goal</p>
+                <strong class="stat-value" id="today-total">0m</strong>
+                <p class="stat-sub"><span id="goal-progress-text">0m of 4h</span> · <button class="goal-edit" id="goal-edit-btn" type="button">edit</button></p>
+              </div>
             </article>
             <article class="stat-card">
               <p class="stat-label">Yesterday</p>
               <strong class="stat-value" id="yesterday-total">0m</strong>
+              <p class="stat-sub" id="daily-delta">— vs yesterday</p>
             </article>
             <article class="stat-card">
               <p class="stat-label">Productivity</p>
@@ -188,6 +219,19 @@
       </section>
 
     </main>
+
+    <div id="modal-root" class="modal-root" hidden aria-hidden="true">
+      <div class="modal-backdrop" data-modal-close></div>
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-head">
+          <h3 id="modal-title">Title</h3>
+          <button class="modal-x" data-modal-close type="button" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
+    </div>
 
     <!-- Clerk -->
     <script src="clerk-config.js"></script>

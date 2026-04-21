@@ -43,6 +43,20 @@ const streakPill     = document.querySelector("#streak-pill");
 const headerDate     = document.querySelector("#header-date");
 const authArea       = document.querySelector("#auth-area");
 
+// New: timer type, countdown, goal, modal
+const typeButtons      = [...document.querySelectorAll(".type-btn")];
+const presetButtons    = [...document.querySelectorAll(".preset-btn")];
+const countdownPresets = document.querySelector("#countdown-presets");
+const countdownCustom  = document.querySelector("#countdown-custom");
+const manualLogBtn     = document.querySelector("#manual-log-btn");
+const goalRingFg       = document.querySelector("#goal-ring-fg");
+const goalRingText     = document.querySelector("#goal-ring-text");
+const goalProgressText = document.querySelector("#goal-progress-text");
+const goalEditBtn      = document.querySelector("#goal-edit-btn");
+const modalRoot        = document.querySelector("#modal-root");
+const modalBody        = document.querySelector("#modal-body");
+const modalTitle       = document.querySelector("#modal-title");
+
 // ─── State ────────────────────────────────────────────────
 
 let currentMode  = "study";
@@ -53,6 +67,15 @@ let sessions     = loadSessionsLocal();
 
 let currentUser  = null;   // { id, name, avatar }
 let clerkSession = null;   // Clerk Session object (used to get fresh JWTs)
+
+// Timer type: "stopwatch" | "countdown"
+const goalKey     = "aevon.goalMinutes.v1";
+const timerTypeKey= "aevon.timerType.v1";
+const cdTargetKey = "aevon.countdownMinutes.v1";
+let timerType       = localStorage.getItem(timerTypeKey) || "stopwatch";
+let countdownTarget = Number(localStorage.getItem(cdTargetKey)) || 45;  // minutes
+let countdownDone   = false;
+let dailyGoalMin    = Number(localStorage.getItem(goalKey)) || 240;     // 4h default
 
 // ─── Supabase helpers ─────────────────────────────────────
 
@@ -421,18 +444,51 @@ function parseLocalDate(str) {
 
 // ─── Timer controls ───────────────────────────────────────
 
+function countdownTargetMs() { return countdownTarget * 60 * 1000; }
+
+function displayMs() {
+  const elapsed = getElapsedMs();
+  if (timerType !== "countdown") return elapsed;
+  return Math.max(0, countdownTargetMs() - elapsed);
+}
+
 function updateTimer() {
-  timeOutput.textContent = formatClock(getElapsedMs());
+  const remaining = displayMs();
+  timeOutput.textContent = formatClock(remaining);
+
+  if (timerType === "countdown") {
+    // Warning under 60s, auto-save at zero
+    timeOutput.classList.toggle("is-warning", remaining > 0 && remaining <= 60_000);
+    if (!countdownDone && getElapsedMs() >= countdownTargetMs()) {
+      countdownDone = true;
+      timeOutput.classList.remove("is-warning");
+      timeOutput.classList.add("is-done");
+      playChime();
+      // Auto-save the completed session
+      const dur = countdownTargetMs();
+      storeSession(createSession(dur, currentMode, noteInput.value.trim()));
+      noteInput.value = "";
+      resetTimerInternal();
+      runStatus.textContent = `Done! Logged ${formatDuration(dur)} of ${getModeLabel(currentMode).toLowerCase()}.`;
+      render();
+      return;
+    }
+  }
   rafId = requestAnimationFrame(updateTimer);
 }
 
 function startTimer() {
   if (startedAt) return;
+  if (timerType === "countdown" && elapsedMs >= countdownTargetMs()) elapsedMs = 0;
+  countdownDone = false;
+  timeOutput.classList.remove("is-done");
   startedAt = Date.now();
   startPauseBtn.textContent = "Pause";
   startPauseBtn.classList.add("is-running");
   timerWidget.classList.add("is-running");
-  runStatus.textContent = `Running ${getModeLabel(currentMode).toLowerCase()}.`;
+  runStatus.textContent = timerType === "countdown"
+    ? `Counting down ${getModeLabel(currentMode).toLowerCase()}.`
+    : `Running ${getModeLabel(currentMode).toLowerCase()}.`;
   updateTimer();
 }
 
@@ -445,17 +501,75 @@ function pauseTimer() {
   timerWidget.classList.remove("is-running");
   runStatus.textContent = "Paused. Save it or keep going.";
   cancelAnimationFrame(rafId);
-  timeOutput.textContent = formatClock(elapsedMs);
+  timeOutput.textContent = formatClock(displayMs());
 }
 
-function resetTimer() {
+function resetTimerInternal() {
   elapsedMs = 0; startedAt = null;
+  countdownDone = false;
   cancelAnimationFrame(rafId);
-  timeOutput.textContent    = "00:00:00";
+  timeOutput.classList.remove("is-warning", "is-done");
+  timeOutput.textContent    = timerType === "countdown"
+    ? formatClock(countdownTargetMs()) : "00:00:00";
   startPauseBtn.textContent = "Start";
   startPauseBtn.classList.remove("is-running");
   timerWidget.classList.remove("is-running");
+}
+
+function resetTimer() {
+  resetTimerInternal();
   runStatus.textContent = "Ready when you are.";
+}
+
+// Short pleasant chime via Web Audio (no asset needed)
+function playChime() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx  = new Ctx();
+    const now  = ctx.currentTime;
+    [880, 1175, 1568].forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type   = "sine";
+      osc.frequency.value = freq;
+      const start = now + i * 0.18;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.7);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start); osc.stop(start + 0.75);
+    });
+    setTimeout(() => ctx.close(), 2500);
+  } catch {}
+}
+
+function setTimerType(type) {
+  if (type === timerType) return;
+  if (startedAt) pauseTimer();
+  timerType = type;
+  localStorage.setItem(timerTypeKey, type);
+  typeButtons.forEach((btn) => {
+    const active = btn.dataset.type === type;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+  countdownPresets.hidden = type !== "countdown";
+  resetTimerInternal();
+  runStatus.textContent = type === "countdown"
+    ? `Countdown set to ${countdownTarget}m. Press Start.`
+    : "Ready when you are.";
+}
+
+function setCountdownTarget(minutes, source = "preset") {
+  const m = Math.max(1, Math.min(600, Math.round(Number(minutes) || 0)));
+  if (!m) return;
+  countdownTarget = m;
+  localStorage.setItem(cdTargetKey, String(m));
+  presetButtons.forEach((btn) =>
+    btn.classList.toggle("is-active",
+      source === "preset" && Number(btn.dataset.minutes) === m));
+  if (!startedAt) resetTimerInternal();
 }
 
 // ─── Session logic ────────────────────────────────────────
@@ -508,6 +622,50 @@ function saveSession() {
   noteInput.value = "";
   resetTimer();
   runStatus.textContent = `Saved ${formatDuration(duration)} of ${getModeLabel(currentMode).toLowerCase()}.`;
+  render();
+}
+
+// ─── Manual log / update / delete ─────────────────────────
+
+function logManualSession({ mode, duration, startedAt: startIso, note }) {
+  const start = startIso ? new Date(startIso) : new Date(Date.now() - duration);
+  const end   = new Date(start.getTime() + duration);
+  const session = {
+    id: createId(), mode, note: note || "", duration,
+    startedAt: start.toISOString(), endedAt: end.toISOString(),
+    day: getDayKey(end), hour: start.getHours(),
+  };
+  storeSession(session);
+  render();
+  return session;
+}
+
+function updateSession(id, patch) {
+  const idx = sessions.findIndex((s) => s.id === id);
+  if (idx === -1) return;
+  const prev = sessions[idx];
+  const next = { ...prev, ...patch };
+  // Re-derive day/hour if duration or start changed
+  if (patch.duration !== undefined || patch.startedAt !== undefined) {
+    const start = new Date(next.startedAt);
+    const end   = new Date(start.getTime() + next.duration);
+    next.endedAt = end.toISOString();
+    next.day     = getDayKey(end);
+    next.hour    = start.getHours();
+  }
+  sessions[idx] = next;
+  saveSessionsLocal(sessions);
+  if (currentUser) saveSessionToSupabase(next);
+  render();
+}
+
+async function deleteSession(id) {
+  sessions = sessions.filter((s) => s.id !== id);
+  saveSessionsLocal(sessions);
+  if (currentUser) {
+    const db = await getDb();
+    if (db) await db.from("sessions").delete().eq("id", id);
+  }
   render();
 }
 
@@ -601,6 +759,15 @@ function renderStats() {
   bestHourEl.textContent     = getBestHour(getSessionsForDay(todayKey).filter(isProductive));
   const score                = getProductivityScore();
   productivityEl.textContent = score === null ? "—" : `${score}%`;
+
+  // Goal ring
+  const goalMs   = dailyGoalMin * 60 * 1000;
+  const rawPct   = goalMs > 0 ? (todayMs / goalMs) * 100 : 0;
+  const pct      = Math.max(0, Math.min(100, rawPct));
+  goalRingFg.setAttribute("stroke-dasharray", `${pct.toFixed(2)} 100`);
+  goalRingFg.setAttribute("stroke", rawPct >= 100 ? "var(--amber)" : "var(--green)");
+  goalRingText.textContent    = `${Math.round(rawPct)}%`;
+  goalProgressText.textContent = `${formatDuration(todayMs)} of ${formatDuration(goalMs)}`;
 }
 
 function renderBreakdown() {
@@ -658,13 +825,14 @@ function renderHistory() {
   emptyState.classList.toggle("is-hidden", sessions.length > 0);
   sessionList.innerHTML = sessions.slice(0, 14).map((s) => {
     const time = new Date(s.endedAt).toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
-    return `<li class="session-item">
+    return `<li class="session-item" data-session-id="${s.id}">
       <span class="session-mode" data-mode="${s.mode}">${getModeLabel(s.mode)}</span>
       <div class="session-info">
         <div class="session-meta">${time}</div>
         <div class="session-note${s.note ? "" : " is-empty"}">${escapeHtml(s.note || "No note added")}</div>
       </div>
       <strong class="session-duration">${formatDuration(s.duration)}</strong>
+      <button class="session-edit" type="button" data-edit-id="${s.id}" aria-label="Edit session">Edit</button>
     </li>`;
   }).join("");
 }
@@ -698,6 +866,182 @@ function setupVoice() {
   recognition.addEventListener("end", () => { if (voiceEnabled) recognition.start(); });
 }
 
+// ─── Modal ────────────────────────────────────────────────
+
+let modalCleanup = null;
+
+function openModal(title, bodyHtml, onMount) {
+  modalTitle.textContent = title;
+  modalBody.innerHTML    = bodyHtml;
+  modalRoot.hidden       = false;
+  modalRoot.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  modalCleanup = typeof onMount === "function" ? onMount() : null;
+  // focus first field
+  setTimeout(() => {
+    const first = modalBody.querySelector("input, select, textarea, button");
+    first?.focus();
+  }, 20);
+}
+
+function closeModal() {
+  if (modalRoot.hidden) return;
+  if (typeof modalCleanup === "function") { try { modalCleanup(); } catch {} }
+  modalCleanup = null;
+  modalRoot.hidden = true;
+  modalRoot.setAttribute("aria-hidden", "true");
+  modalBody.innerHTML = "";
+  document.body.style.overflow = "";
+}
+
+modalRoot.addEventListener("click", (e) => {
+  if (e.target.closest("[data-modal-close]")) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !modalRoot.hidden) closeModal();
+});
+
+// ─── Manual log dialog ────────────────────────────────────
+
+function nowLocalDatetimeValue() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+function openManualLogModal() {
+  const modeOptions = modes.map((m) =>
+    `<option value="${m.id}"${m.id === currentMode ? " selected" : ""}>${m.label}</option>`).join("");
+
+  openModal("Log a past session", `
+    <div class="field">
+      <label class="field-label" for="ml-mode">Mode</label>
+      <select class="field-select" id="ml-mode">${modeOptions}</select>
+    </div>
+    <div class="field">
+      <label class="field-label">Duration</label>
+      <div class="field-row">
+        <input class="field-input" id="ml-hours"   type="number" min="0" max="24" step="1" placeholder="Hours"   inputmode="numeric" />
+        <input class="field-input" id="ml-minutes" type="number" min="0" max="59" step="1" placeholder="Minutes" inputmode="numeric" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="ml-when">Ended at</label>
+      <input class="field-input" id="ml-when" type="datetime-local" value="${nowLocalDatetimeValue()}" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="ml-note">Note (optional)</label>
+      <input class="field-input" id="ml-note" type="text" placeholder="What were you working on?" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" type="button" data-modal-close>Cancel</button>
+      <button class="btn-primary" id="ml-save" type="button">Log session</button>
+    </div>
+  `, () => {
+    const save = document.getElementById("ml-save");
+    save.addEventListener("click", () => {
+      const mode    = document.getElementById("ml-mode").value;
+      const hours   = Number(document.getElementById("ml-hours").value)   || 0;
+      const minutes = Number(document.getElementById("ml-minutes").value) || 0;
+      const whenVal = document.getElementById("ml-when").value;
+      const note    = document.getElementById("ml-note").value.trim();
+      const duration = (hours * 3600 + minutes * 60) * 1000;
+      if (duration < 1000) {
+        runStatus.textContent = "Enter a duration before logging.";
+        return;
+      }
+      const endedAt = whenVal ? new Date(whenVal) : new Date();
+      const startedIso = new Date(endedAt.getTime() - duration).toISOString();
+      logManualSession({ mode, duration, startedAt: startedIso, note });
+      runStatus.textContent = `Logged ${formatDuration(duration)} of ${getModeLabel(mode).toLowerCase()}.`;
+      closeModal();
+    });
+  });
+}
+
+// ─── Edit session dialog ──────────────────────────────────
+
+function openEditSessionModal(id) {
+  const s = sessions.find((x) => x.id === id);
+  if (!s) return;
+  const modeOptions = modes.map((m) =>
+    `<option value="${m.id}"${m.id === s.mode ? " selected" : ""}>${m.label}</option>`).join("");
+  const totalMin = Math.round(s.duration / 60000);
+  const hours    = Math.floor(totalMin / 60);
+  const minutes  = totalMin % 60;
+
+  openModal("Edit session", `
+    <div class="field">
+      <label class="field-label" for="ed-mode">Mode</label>
+      <select class="field-select" id="ed-mode">${modeOptions}</select>
+    </div>
+    <div class="field">
+      <label class="field-label">Duration</label>
+      <div class="field-row">
+        <input class="field-input" id="ed-hours"   type="number" min="0" max="24" step="1" value="${hours}"   inputmode="numeric" />
+        <input class="field-input" id="ed-minutes" type="number" min="0" max="59" step="1" value="${minutes}" inputmode="numeric" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="ed-note">Note</label>
+      <input class="field-input" id="ed-note" type="text" value="${escapeHtml(s.note || "")}" placeholder="What were you working on?" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger"  id="ed-delete" type="button">Delete</button>
+      <button class="btn-primary" id="ed-save"   type="button">Save</button>
+    </div>
+  `, () => {
+    document.getElementById("ed-save").addEventListener("click", () => {
+      const mode    = document.getElementById("ed-mode").value;
+      const h       = Number(document.getElementById("ed-hours").value)   || 0;
+      const m       = Number(document.getElementById("ed-minutes").value) || 0;
+      const note    = document.getElementById("ed-note").value.trim();
+      const duration = (h * 3600 + m * 60) * 1000;
+      if (duration < 1000) return;
+      updateSession(id, { mode, duration, note });
+      closeModal();
+    });
+    document.getElementById("ed-delete").addEventListener("click", () => {
+      if (confirm("Delete this session? This cannot be undone.")) {
+        deleteSession(id);
+        closeModal();
+      }
+    });
+  });
+}
+
+// ─── Daily goal dialog ────────────────────────────────────
+
+function openGoalModal() {
+  const hours   = Math.floor(dailyGoalMin / 60);
+  const minutes = dailyGoalMin % 60;
+  openModal("Daily focus goal", `
+    <p class="streak-msg" style="margin:0 0 4px;">How much productive time do you want to log each day?</p>
+    <div class="field">
+      <label class="field-label">Target per day</label>
+      <div class="field-row">
+        <input class="field-input" id="g-hours"   type="number" min="0" max="24" step="1" value="${hours}"   inputmode="numeric" />
+        <input class="field-input" id="g-minutes" type="number" min="0" max="59" step="1" value="${minutes}" inputmode="numeric" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost"   type="button" data-modal-close>Cancel</button>
+      <button class="btn-primary" id="g-save"   type="button">Save goal</button>
+    </div>
+  `, () => {
+    document.getElementById("g-save").addEventListener("click", () => {
+      const h = Number(document.getElementById("g-hours").value)   || 0;
+      const m = Number(document.getElementById("g-minutes").value) || 0;
+      const total = Math.max(0, h * 60 + m);
+      if (total === 0) return;
+      dailyGoalMin = total;
+      localStorage.setItem(goalKey, String(total));
+      render();
+      closeModal();
+    });
+  });
+}
+
 // ─── Event listeners ──────────────────────────────────────
 
 modeButtons.forEach((btn) => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
@@ -705,6 +1049,31 @@ startPauseBtn.addEventListener("click",  () => startedAt ? pauseTimer() : startT
 saveButton.addEventListener("click",     saveSession);
 resetButton.addEventListener("click",    resetTimer);
 sessionForm.addEventListener("submit",   (e) => { e.preventDefault(); saveSession(); });
+
+// Timer type tabs
+typeButtons.forEach((btn) => btn.addEventListener("click", () => setTimerType(btn.dataset.type)));
+
+// Countdown presets
+presetButtons.forEach((btn) =>
+  btn.addEventListener("click", () => {
+    countdownCustom.value = "";
+    setCountdownTarget(Number(btn.dataset.minutes));
+  }));
+countdownCustom.addEventListener("input", () => {
+  if (countdownCustom.value) setCountdownTarget(countdownCustom.value, "custom");
+});
+
+// Manual log
+manualLogBtn.addEventListener("click", openManualLogModal);
+
+// Goal edit
+goalEditBtn.addEventListener("click", openGoalModal);
+
+// Session edit (delegated)
+sessionList.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-edit-id]");
+  if (btn) openEditSessionModal(btn.dataset.editId);
+});
 voiceButton.addEventListener("click", () => {
   if (!recognition) return;
   voiceEnabled = !voiceEnabled;
@@ -719,6 +1088,17 @@ voiceButton.addEventListener("click", () => {
 });
 
 // ─── Init ─────────────────────────────────────────────────
+
+// Initialize timer type UI to match persisted state
+typeButtons.forEach((btn) => {
+  const active = btn.dataset.type === timerType;
+  btn.classList.toggle("is-active", active);
+  btn.setAttribute("aria-selected", String(active));
+});
+countdownPresets.hidden = timerType !== "countdown";
+presetButtons.forEach((btn) =>
+  btn.classList.toggle("is-active", Number(btn.dataset.minutes) === countdownTarget));
+if (timerType === "countdown") timeOutput.textContent = formatClock(countdownTargetMs());
 
 setupVoice();
 renderBrandClock();
