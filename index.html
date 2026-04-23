@@ -40,9 +40,6 @@
             <span id="header-streak">0</span>&thinsp;day streak
           </div>
           <div class="header-date" id="header-date"></div>
-          <button class="theme-toggle" id="shortcuts-btn" type="button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>
-          </button>
           <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme">
             <svg class="theme-icon theme-icon--moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <svg class="theme-icon theme-icon--sun"  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -59,9 +56,26 @@
       <section class="hero">
         <div class="hero-inner">
           <div class="hero-copy">
-            <p class="eyebrow">Focus</p>
-            <h1>Track every<br>session<br>that counts.</h1>
-            <p class="lede">One adaptive stopwatch for study, projects, work, and downtime — with insights that make effort visible.</p>
+            <p class="eyebrow">Layer 1 / Track</p>
+            <h1>Track focused time. Keep work moving.</h1>
+            <p class="lede">Aevon keeps personal work simple: capture sessions, review today, and use deeper insights only when you need them.</p>
+            <div class="workflow-steps" aria-label="Aevon workflow">
+              <div class="workflow-step">
+                <span>1</span>
+                <strong>Track</strong>
+                <p>Start a session and add context when it helps.</p>
+              </div>
+              <div class="workflow-step">
+                <span>2</span>
+                <strong>Review</strong>
+                <p>See today's progress without digging.</p>
+              </div>
+              <div class="workflow-step">
+                <span>3</span>
+                <strong>Improve</strong>
+                <p>Open patterns when planning your next block.</p>
+              </div>
+            </div>
           </div>
 
           <div class="timer-widget" id="timer-widget">
@@ -72,14 +86,14 @@
               </div>
               <button class="btn-icon" id="manual-log-btn" type="button" title="Log past session" aria-label="Log past session">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Log past</span>
+                <span>Add past</span>
               </button>
             </div>
             <div class="mode-row" role="radiogroup" aria-label="Tracking mode">
               <button class="mode-btn is-active" data-mode="study"          type="button" role="radio" aria-checked="true">Study</button>
               <button class="mode-btn"            data-mode="projects"      type="button" role="radio" aria-checked="false">Projects</button>
               <button class="mode-btn"            data-mode="work"          type="button" role="radio" aria-checked="false">Work</button>
-              <button class="mode-btn"            data-mode="entertainment" type="button" role="radio" aria-checked="false">Entertainment</button>
+              <button class="mode-btn"            data-mode="entertainment" type="button" role="radio" aria-checked="false">Break</button>
             </div>
             <div class="countdown-presets" id="countdown-presets" hidden>
               <button class="preset-btn" data-minutes="25" type="button">25m</button>
@@ -97,13 +111,20 @@
               <button id="start-pause"  class="btn-primary" type="button">Start</button>
               <button id="save-session" class="btn-ghost"   type="button">Save</button>
               <button id="reset-session"class="btn-ghost"   type="button">Reset</button>
-              <button id="voice-toggle" class="btn-ghost"   type="button">Voice</button>
             </div>
             <form id="session-form" class="note-form">
               <input id="session-note" name="session-note" type="text" autocomplete="off"
-                     placeholder="Add a note — lecture 4, client spec..." />
+                     placeholder="What did you work on?" />
               <button type="submit" class="btn-log">Log</button>
             </form>
+            <details class="timer-more">
+              <summary>More tools</summary>
+              <div class="timer-tools-grid">
+                <button id="voice-toggle" class="btn-tool" type="button">Voice control</button>
+                <button id="shortcuts-btn" class="btn-tool" type="button">Shortcuts</button>
+                <button class="btn-tool" id="export-csv" type="button" title="Export all sessions as CSV">Export CSV</button>
+              </div>
+            </details>
           </div>
         </div>
       </section>
@@ -111,8 +132,9 @@
       <section class="today-section">
         <div class="section-wrap">
           <div class="section-head">
-            <p class="eyebrow">Today</p>
-            <h2>At a glance</h2>
+            <p class="eyebrow">Layer 2 / Review</p>
+            <h2>Today</h2>
+            <p class="section-intro">The essentials stay visible: progress, momentum, and what changed since yesterday.</p>
           </div>
           <div class="today-grid">
             <article class="stat-card stat-card--goal" id="goal-card">
@@ -139,23 +161,38 @@
               <p class="stat-sub" id="daily-delta">— vs yesterday</p>
             </article>
             <article class="stat-card">
-              <p class="stat-label">Productivity</p>
+              <p class="stat-label">Focus share</p>
               <strong class="stat-value" id="productivity-score">—</strong>
-              <p class="stat-sub">of tracked time</p>
+              <p class="stat-sub">productive time</p>
             </article>
             <article class="stat-card">
-              <p class="stat-label">Best hour</p>
+              <p class="stat-label">Best focus hour</p>
               <strong class="stat-value stat-value--md" id="best-hour">—</strong>
             </article>
           </div>
         </div>
       </section>
 
+      <section class="history-section">
+        <div class="section-wrap">
+          <div class="section-head--row">
+            <div class="section-head">
+              <p class="eyebrow">Layer 2 / Logbook</p>
+              <h2>Recent sessions</h2>
+              <p class="section-intro">A short, editable record of the work you have just completed.</p>
+            </div>
+          </div>
+          <div id="empty-state" class="empty-state">Your saved sessions will appear here.</div>
+          <ol id="session-list" class="session-list"></ol>
+        </div>
+      </section>
+
       <section class="insights-section">
         <div class="section-wrap">
           <div class="section-head">
-            <p class="eyebrow">Insights</p>
-            <h2>Your patterns</h2>
+            <p class="eyebrow">Layer 3 / Improve</p>
+            <h2>Deeper insights</h2>
+            <p class="section-intro">Use this when you want to plan better blocks, compare weeks, or understand your rhythm.</p>
           </div>
           <div class="insights-grid">
 
@@ -208,36 +245,22 @@
                   </div>
                 </div>
 
-                <div class="insight-card insight-card--peaks">
-                  <div class="card-head"><h3>Peak patterns</h3></div>
-                  <ul class="peak-list">
+                <details class="advanced-insights">
+                  <summary>Advanced patterns</summary>
+                  <div class="insight-card insight-card--peaks">
+                    <div class="card-head"><h3>Peak patterns</h3></div>
+                    <ul class="peak-list">
                     <li class="peak-item"><span>Best day</span><strong id="best-day">—</strong></li>
                     <li class="peak-item"><span>Best hour</span><strong id="best-hour-2">—</strong></li>
                     <li class="peak-item"><span>Avg session</span><strong id="avg-session">—</strong></li>
                     <li class="peak-item"><span>All-time</span><strong id="total-all-time">—</strong></li>
-                  </ul>
-                </div>
+                    </ul>
+                  </div>
+                </details>
               </div>
             </div>
 
           </div>
-        </div>
-      </section>
-
-      <section class="history-section">
-        <div class="section-wrap">
-          <div class="section-head--row">
-            <div class="section-head">
-              <p class="eyebrow">Log</p>
-              <h2>Recent sessions</h2>
-            </div>
-            <button class="btn-export" id="export-csv" type="button" title="Export all sessions as CSV">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
-              Export CSV
-            </button>
-          </div>
-          <div id="empty-state" class="empty-state">Your saved sessions will appear here.</div>
-          <ol id="session-list" class="session-list"></ol>
         </div>
       </section>
 

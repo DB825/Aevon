@@ -214,6 +214,10 @@ main { position: relative; z-index: 1; }
   width: 100%;
 }
 
+.hero-copy {
+  max-width: 560px;
+}
+
 /* ─── Typography ─── */
 .eyebrow {
   font-size: 0.7rem;
@@ -253,6 +257,47 @@ h3 {
   line-height: 1.7;
   color: var(--muted);
   max-width: 38ch;
+}
+
+.workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.workflow-step {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  backdrop-filter: blur(12px);
+}
+
+.workflow-step span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: var(--green-dim);
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.workflow-step strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.workflow-step p {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 /* ─── Timer widget ─── */
@@ -346,7 +391,7 @@ h3 {
 /* Controls */
 .control-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -433,6 +478,72 @@ button, .btn-log {
   color: var(--green);
 }
 
+.timer-more {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.timer-more summary {
+  width: fit-content;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  list-style: none;
+  transition: color 0.16s ease;
+}
+
+.timer-more summary::-webkit-details-marker { display: none; }
+
+.timer-more summary:hover {
+  color: var(--green);
+}
+
+.timer-more summary::after {
+  content: "+";
+  margin-left: 7px;
+  color: var(--green);
+}
+
+.timer-more[open] summary::after {
+  content: "-";
+}
+
+.timer-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-tool {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: all 0.16s ease;
+}
+
+.btn-tool:hover {
+  border-color: var(--border-active);
+  color: var(--green);
+}
+
+.btn-tool.is-active {
+  border-color: var(--border-active);
+  color: var(--green);
+  background: var(--green-dim);
+}
+
+.btn-tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* ─── Today section ─── */
 .today-section {
   padding: 44px 32px;
@@ -447,6 +558,14 @@ button, .btn-log {
 }
 
 .section-head { margin-bottom: 20px; }
+
+.section-intro {
+  max-width: 58ch;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
 
 .today-grid {
   display: grid;
@@ -523,6 +642,46 @@ button, .btn-log {
   border-radius: 18px;
   background: var(--card);
   backdrop-filter: blur(12px);
+}
+
+.advanced-insights {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  backdrop-filter: blur(12px);
+}
+
+.advanced-insights summary {
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.advanced-insights summary::-webkit-details-marker { display: none; }
+
+.advanced-insights summary::after {
+  content: "Open";
+  float: right;
+  color: var(--green);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.advanced-insights[open] summary::after {
+  content: "Hide";
+}
+
+.advanced-insights .insight-card {
+  margin-top: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 /* ─── Activity clock ─── */
@@ -1492,6 +1651,7 @@ kbd {
 
   .insights-grid { grid-template-columns: 1fr; }
   .insights-bottom { grid-template-columns: 1fr 1fr; }
+  .advanced-insights { grid-column: 1 / -1; }
 
   .insight-card--clock { max-width: 320px; }
 }
@@ -1508,6 +1668,8 @@ kbd {
 
   .today-grid { grid-template-columns: 1fr; }
   .insights-bottom { grid-template-columns: 1fr; }
+  .workflow-steps { grid-template-columns: 1fr; }
+  .timer-tools-grid { grid-template-columns: 1fr; }
 
   .insight-card--clock { max-width: 100%; }
 

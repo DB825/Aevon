@@ -2,7 +2,7 @@ const modes = [
   { id: "study",         label: "Study",         productive: true,  color: "#4ade80" },
   { id: "projects",      label: "Projects",      productive: true,  color: "#fb7185" },
   { id: "work",          label: "Work",          productive: true,  color: "#a78bfa" },
-  { id: "entertainment", label: "Entertainment", productive: false, color: "#fbbf24" },
+  { id: "entertainment", label: "Break", productive: false, color: "#fbbf24" },
 ];
 
 const storageKey = "aevon.sessions.v1";
@@ -1001,7 +1001,7 @@ function renderInsights() {
   daysThisWeek.textContent  = `${active} ${active === 1 ? "day" : "days"}`;
   streakMsg.textContent     = streak === 0 ? "Log a session today to start your streak."
     : streak === 1 ? "Day one. Keep it going tomorrow."
-    : `${streak} days strong. Don't break the chain.`;
+    : `${streak} days strong. Keep the rhythm steady.`;
 
   bestDayEl.textContent    = getBestDayOfWeek();
   bestHour2.textContent    = getBestHour(sessions.filter(isProductive));
@@ -1019,7 +1019,7 @@ function renderInsights() {
 function renderHistory() {
   emptyState.classList.toggle("is-hidden", sessions.length > 0);
   if (exportCsvBtn) exportCsvBtn.disabled = sessions.length === 0;
-  sessionList.innerHTML = sessions.slice(0, 14).map((s) => {
+  sessionList.innerHTML = sessions.slice(0, 8).map((s) => {
     const time = new Date(s.endedAt).toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
     const tagsHtml = (s.tags || []).length
       ? `<div class="session-tags">${s.tags.map((t) => `<span class="tag-chip">#${escapeHtml(t)}</span>`).join("")}</div>`
@@ -1052,7 +1052,7 @@ let recognition = null, voiceEnabled = false;
 
 function setupVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { voiceButton.disabled = true; voiceButton.textContent = "No voice"; return; }
+  if (!SR) { voiceButton.disabled = true; voiceButton.textContent = "Voice unavailable"; return; }
   recognition = new SR();
   recognition.continuous = true; recognition.interimResults = false; recognition.lang = "en-US";
   recognition.addEventListener("result", (e) => {
@@ -1134,9 +1134,9 @@ function openManualLogModal() {
       <input class="field-input" id="ml-note" type="text" placeholder="What were you working on?" />
     </div>
     <div class="field">
-      <label class="field-label" for="ml-tags">Tags (optional)</label>
-      <input class="field-input" id="ml-tags" type="text" placeholder="math, client-x, deep-work" />
-      <span class="tag-hint">Space or comma separated, up to 6.</span>
+      <label class="field-label" for="ml-tags">Labels (optional)</label>
+      <input class="field-input" id="ml-tags" type="text" placeholder="writing, planning, admin" />
+      <span class="tag-hint">Use labels when they make sessions easier to find later.</span>
     </div>
     <div class="modal-actions">
       <button class="btn-ghost" type="button" data-modal-close>Cancel</button>
@@ -1195,9 +1195,9 @@ function openEditSessionModal(id) {
       <input class="field-input" id="ed-note" type="text" value="${escapeHtml(s.note || "")}" placeholder="What were you working on?" />
     </div>
     <div class="field">
-      <label class="field-label" for="ed-tags">Tags</label>
-      <input class="field-input" id="ed-tags" type="text" value="${escapeHtml(tagValue)}" placeholder="math, client-x, deep-work" />
-      <span class="tag-hint">Space or comma separated, up to 6.</span>
+      <label class="field-label" for="ed-tags">Labels</label>
+      <input class="field-input" id="ed-tags" type="text" value="${escapeHtml(tagValue)}" placeholder="writing, planning, admin" />
+      <span class="tag-hint">Use labels when they make sessions easier to find later.</span>
     </div>
     <div class="modal-actions">
       <button class="btn-danger"  id="ed-delete" type="button">Delete</button>
@@ -1280,7 +1280,7 @@ const SHORTCUTS = [
   { keys: ["M"],        label: "Log a past session" },
   { keys: ["G"],        label: "Open preferences" },
   { keys: ["T"],        label: "Toggle light / dark" },
-  { keys: ["?"],        label: "Show this cheatsheet" },
+  { keys: ["?"],        label: "Show shortcuts" },
   { keys: ["Esc"],      label: "Close any open dialog" },
 ];
 
@@ -1292,7 +1292,7 @@ function openShortcutsModal() {
     </li>
   `).join("");
 
-  openModal("Keyboard shortcuts", `
+  openModal("Shortcuts", `
     <p class="tag-hint" style="margin:-4px 0 6px;">Disabled while typing in a field or with a dialog open.</p>
     <ul class="shortcut-list">${rows}</ul>
     <div class="modal-actions">
@@ -1383,7 +1383,7 @@ voiceButton.addEventListener("click", () => {
   voiceEnabled = !voiceEnabled;
   if (voiceEnabled) {
     voiceButton.textContent = "Voice on"; voiceButton.classList.add("is-active");
-    runStatus.textContent   = "Voice: start, pause, save, reset, study, projects, work, entertainment.";
+    runStatus.textContent   = "Voice: start, pause, save, reset, study, projects, work, break.";
     try { recognition.start(); } catch {}
   } else {
     recognition.stop(); voiceButton.textContent = "Voice"; voiceButton.classList.remove("is-active");
